@@ -11,6 +11,8 @@ repositories {
 
 dependencies {
     implementation group: 'org.openpnp', name: 'opencv', version: '4.5.1-2'
+// https://mvnrepository.com/artifact/com.github.sarxos/webcam-capture
+    implementation 'com.github.sarxos:webcam-capture:0.3.12'
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
