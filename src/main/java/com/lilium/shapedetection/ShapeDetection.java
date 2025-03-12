@@ -31,17 +31,21 @@ class ShapeDetection {
                                                 final Webcam webcam) {
         return () -> {
             while (true) {
-                // Get frame from webcam
                 BufferedImage image = webcam.getImage();
                 Mat frame = bufferedImageToMat(image);
+                double alpha = 2.0;
+                int beta = -75;
+                Mat adjustedFrame = new Mat();
+                frame.convertTo(adjustedFrame, -1, alpha, beta);
+
                 // Process frame (you'll need to convert BufferedImage to a format suitable for processing)
-                Mat processed = ShapeDetectionUtil.processImage(frame);
+                Mat processed = ShapeDetectionUtil.processImage(adjustedFrame);
 
                 // Mark outer contour
-                ShapeDetectionUtil.markOuterContour(processed, frame);
+                ShapeDetectionUtil.markOuterContour(processed, adjustedFrame);
 
-                // Draw current frame
-                ShapeDetectionUtil.drawImage(frame, cameraFeed);
+                // Draw current adjustedFrame
+                ShapeDetectionUtil.drawImage(adjustedFrame, cameraFeed);
 
                 // Draw processed image
                 ShapeDetectionUtil.drawImage(processed, processedFeed);
