@@ -3,28 +3,26 @@ package com.lilium.shapedetection;
 import com.github.sarxos.webcam.Webcam;
 import com.lilium.shapedetection.util.ShapeDetectionUtil;
 import nu.pattern.OpenCV;
-import org.opencv.core.Mat;
-import org.opencv.core.Size;
+import org.opencv.core.*;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 class ShapeDetection {
     public static void main(String[] args) {
         OpenCV.loadLocally();
-        // Create panels
         final JPanel cameraFeed = new JPanel();
         final JPanel processedFeed = new JPanel();
         ShapeDetectionUtil.createJFrame(cameraFeed, processedFeed);
-
-        // Get default webcam
         Webcam webcam = Webcam.getDefault();
         webcam.setViewSize(new Dimension(640, 480)); // Set resolution
         webcam.open();
-
-        // Start shape detection
         startShapeDetection(cameraFeed, processedFeed, webcam).run();
     }
 
@@ -35,24 +33,11 @@ class ShapeDetection {
             while (true) {
                 BufferedImage image = webcam.getImage();
                 Mat frame = bufferedImageToMat(image);
-                double alpha = 2.0;
-                int beta = -75;
-                Mat adjustedFrame = new Mat();
-                frame.convertTo(adjustedFrame, -1, alpha, beta);
-//                Mat adjustedFrame = frame.clone();
-
-                // Process frame (you'll need to convert BufferedImage to a format suitable for processing)
+                Mat adjustedFrame = adjustShadowsAndContrast(frame, 0.5, 1.2, 3.0);
                 Mat processed = ShapeDetectionUtil.processImage(adjustedFrame);
-
-                // Mark outer contour
                 ShapeDetectionUtil.markOuterContour(processed, adjustedFrame);
-                // Draw current adjustedFrame
                 ShapeDetectionUtil.drawImage(adjustedFrame, cameraFeed);
-
-                // Draw processed image
                 ShapeDetectionUtil.drawImage(processed, processedFeed);
-
-                // Add small delay to prevent overwhelming the system
                 try {
                     Thread.sleep(33); // ~30 FPS
                 } catch (InterruptedException e) {
@@ -60,6 +45,18 @@ class ShapeDetection {
                 }
             }
         };
+    }
+    public static Mat adjustShadowsAndContrast(Mat frame, double shadowLevel, double contrastLevel, double sharpnessLevel) {
+        Mat result = new Mat();
+        frame.convertTo(result, -1, 1, shadowLevel);
+        result.convertTo(result, -1, contrastLevel, 0);
+        if (sharpnessLevel > 0) {
+            Mat kernel = new Mat(3, 3, CvType.CV_32F);
+            kernel.put(0, 0, 0, -1, 0, -1, 5 + sharpnessLevel, -1, 0, -1, 0); // Sharpening kernel
+            Imgproc.filter2D(result, result, result.depth(), kernel);
+        }
+
+        return result;
     }
 
     private static Mat zoomImage(Mat input, double zoomFactor) {
@@ -71,7 +68,6 @@ class ShapeDetection {
     }
 
     public static Mat bufferedImageToMat(BufferedImage bi) {
-        // Determine the number of channels based on BufferedImage type
         int type = bi.getType();
         int channels;
         int cvType;
@@ -86,7 +82,6 @@ class ShapeDetection {
                 cvType = org.opencv.core.CvType.CV_8UC1;
                 break;
             default:
-                // Convert to BGR if type is not directly supported
                 BufferedImage bgrImage = new BufferedImage(bi.getWidth(), bi.getHeight(),
                         BufferedImage.TYPE_3BYTE_BGR);
                 bgrImage.getGraphics().drawImage(bi, 0, 0, null);
@@ -95,15 +90,9 @@ class ShapeDetection {
                 cvType = org.opencv.core.CvType.CV_8UC3;
                 break;
         }
-
-        // Create Mat
         Mat mat = new Mat(bi.getHeight(), bi.getWidth(), cvType);
-
-        // Get pixel data
         byte[] data = new byte[bi.getWidth() * bi.getHeight() * channels];
         bi.getRaster().getDataElements(0, 0, bi.getWidth(), bi.getHeight(), data);
-
-        // If BGR, we need to reorder to RGB (OpenCV uses BGR by default)
         if (channels == 3) {
             for (int i = 0; i < data.length; i += 3) {
                 byte temp = data[i];

@@ -26,6 +26,7 @@ public final class ShapeDetectionUtil {
     // endregion
 
     // region OpenCV
+
     /**
      * Used to process forwarded {@link Mat} image and return the result.
      *
@@ -35,6 +36,7 @@ public final class ShapeDetectionUtil {
     public static Mat processImage(final Mat mat) {
         final Mat processed = new Mat(mat.height(), mat.width(), mat.type());
         // Blur an image using a Gaussian filter
+        Imgproc.bilateralFilter(mat, processed, 9, 75, 75);
         Imgproc.GaussianBlur(mat, processed, new Size(7, 7), 1);
 
         // Switch from RGB to GRAY
@@ -46,20 +48,13 @@ public final class ShapeDetectionUtil {
         // Dilate an image by using a specific structuring element
         // https://en.wikipedia.org/wiki/Dilation_(morphology)
         Imgproc.dilate(processed, processed, new Mat(), new Point(-1, -1), 1);
-//        Imgproc.erode(processed, processed, new Mat());
+        Imgproc.erode(processed, processed, new Mat());
 
         return processed;
     }
 
-    /**
-     * Used to mark outer rectangle and its corners.
-     *
-     * @param processedImage Image used for calculation of contours and corners.
-     * @param originalImage Image on which marking is done.
-     */
     public static void markOuterContour(final Mat processedImage,
                                         final Mat originalImage) {
-        // Find contours of an image
         final List<MatOfPoint> allContours = new ArrayList<>();
         Imgproc.findContours(
                 processedImage,
@@ -68,17 +63,13 @@ public final class ShapeDetectionUtil {
                 Imgproc.RETR_EXTERNAL,
                 Imgproc.CHAIN_APPROX_NONE
         );
-
-        // Filter out noise and display contour area value
         final List<MatOfPoint> filteredContours = allContours.stream()
                 .filter(contour -> {
                     final double value = Imgproc.contourArea(contour);
                     final Rect rect = Imgproc.boundingRect(contour);
-
                     final boolean isNotNoise = value > 1000;
-
                     if (isNotNoise) {
-                        Imgproc.putText (
+                        Imgproc.putText(
                                 originalImage,
                                 findArea(contour),
                                 new Point(rect.x + rect.width, rect.y + rect.height),
@@ -87,11 +78,10 @@ public final class ShapeDetectionUtil {
                                 new Scalar(124, 252, 0),
                                 1
                         );
-
                         MatOfPoint2f dst = new MatOfPoint2f();
                         contour.convertTo(dst, CvType.CV_32F);
                         Imgproc.approxPolyDP(dst, dst, 0.02 * Imgproc.arcLength(dst, true), true);
-                        Imgproc.putText (
+                        Imgproc.putText(
                                 originalImage,
                                 "Points: " + dst.toArray().length,
                                 new Point(rect.x + rect.width, rect.y + rect.height + 15),
@@ -101,34 +91,25 @@ public final class ShapeDetectionUtil {
                                 1
                         );
                     }
-
                     return isNotNoise;
                 }).collect(Collectors.toList());
-
-        // Mark contours
         Imgproc.drawContours(
                 originalImage,
                 filteredContours,
-                -1, // Negative value indicates that we want to draw all of contours
-                new Scalar(124, 252, 0), // Green color
+                -1,
+                new Scalar(124, 252, 0),
                 1
         );
     }
 
     private static String findArea(MatOfPoint contour) {
-        // Step 1: Get the bounding rectangle of the contour
         Rect boundingRect = Imgproc.boundingRect(contour);
-        double scalingFactor = (0.3093 + 0.3401) / 2; // Average scaling factor
-
-
+        double scalingFactor = 0.03695;
         double lengthCm = boundingRect.height * scalingFactor;
         double widthCm = boundingRect.width * scalingFactor;
-
         return String.format("l=%.2f cm, w=%.2f cm", lengthCm, widthCm);
     }
-    // endregion
 
-    // region UI
     public static void createJFrame(final JPanel... panels) {
         final JFrame window = new JFrame("Shape Detection");
         window.setSize(new Dimension(panels.length * 640, 480));
@@ -144,43 +125,24 @@ public final class ShapeDetectionUtil {
         window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     }
 
-    /**
-     * Draw forwarded mat image to forwarded panel.
-     *
-     * @param mat Image to draw.
-     * @param panel Panel on which to draw image.
-     */
     public static void drawImage(final Mat mat, final JPanel panel) {
-        // Get buffered image from mat frame
         final BufferedImage image = ShapeDetectionUtil.convertMatToBufferedImage(mat);
 
-        // Draw image to panel
         final Graphics graphics = panel.getGraphics();
         graphics.drawImage(image, 0, 0, panel);
     }
-    // endregion
 
-    // region Helpers
-    /**
-     * Converts forwarded {@link Mat} to {@link BufferedImage}.
-     *
-     * @param mat Mat to convert.
-     * @return Returns converted BufferedImage.
-     */
     private static BufferedImage convertMatToBufferedImage(final Mat mat) {
-        // Create buffered image
         final BufferedImage bufferedImage = new BufferedImage(
                 mat.width(),
                 mat.height(),
                 mat.channels() == 1 ? BufferedImage.TYPE_BYTE_GRAY : BufferedImage.TYPE_3BYTE_BGR
         );
 
-        // Write data to image
         final WritableRaster raster = bufferedImage.getRaster();
         final DataBufferByte dataBuffer = (DataBufferByte) raster.getDataBuffer();
         mat.get(0, 0, dataBuffer.getData());
 
         return bufferedImage;
     }
-    // endregion
 }
