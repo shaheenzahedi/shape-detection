@@ -4,6 +4,8 @@ import com.github.sarxos.webcam.Webcam;
 import com.lilium.shapedetection.util.ShapeDetectionUtil;
 import nu.pattern.OpenCV;
 import org.opencv.core.Mat;
+import org.opencv.core.Size;
+import org.opencv.imgproc.Imgproc;
 
 import javax.swing.*;
 import java.awt.*;
@@ -37,13 +39,13 @@ class ShapeDetection {
                 int beta = -75;
                 Mat adjustedFrame = new Mat();
                 frame.convertTo(adjustedFrame, -1, alpha, beta);
+//                Mat adjustedFrame = frame.clone();
 
                 // Process frame (you'll need to convert BufferedImage to a format suitable for processing)
                 Mat processed = ShapeDetectionUtil.processImage(adjustedFrame);
 
                 // Mark outer contour
                 ShapeDetectionUtil.markOuterContour(processed, adjustedFrame);
-
                 // Draw current adjustedFrame
                 ShapeDetectionUtil.drawImage(adjustedFrame, cameraFeed);
 
@@ -59,6 +61,15 @@ class ShapeDetection {
             }
         };
     }
+
+    private static Mat zoomImage(Mat input, double zoomFactor) {
+        Mat zoomed = new Mat();
+        int newWidth = (int) (input.cols() * zoomFactor);
+        int newHeight = (int) (input.rows() * zoomFactor);
+        Imgproc.resize(input, zoomed, new Size(newWidth, newHeight), 0, 0, Imgproc.INTER_LINEAR);
+        return zoomed;
+    }
+
     public static Mat bufferedImageToMat(BufferedImage bi) {
         // Determine the number of channels based on BufferedImage type
         int type = bi.getType();

@@ -46,6 +46,7 @@ public final class ShapeDetectionUtil {
         // Dilate an image by using a specific structuring element
         // https://en.wikipedia.org/wiki/Dilation_(morphology)
         Imgproc.dilate(processed, processed, new Mat(), new Point(-1, -1), 1);
+//        Imgproc.erode(processed, processed, new Mat());
 
         return processed;
     }
@@ -79,7 +80,7 @@ public final class ShapeDetectionUtil {
                     if (isNotNoise) {
                         Imgproc.putText (
                                 originalImage,
-                                "Area: " + (int) value,
+                                findArea(contour),
                                 new Point(rect.x + rect.width, rect.y + rect.height),
                                 2,
                                 0.5,
@@ -112,6 +113,18 @@ public final class ShapeDetectionUtil {
                 new Scalar(124, 252, 0), // Green color
                 1
         );
+    }
+
+    private static String findArea(MatOfPoint contour) {
+        // Step 1: Get the bounding rectangle of the contour
+        Rect boundingRect = Imgproc.boundingRect(contour);
+        double scalingFactor = (0.3093 + 0.3401) / 2; // Average scaling factor
+
+
+        double lengthCm = boundingRect.height * scalingFactor;
+        double widthCm = boundingRect.width * scalingFactor;
+
+        return String.format("l=%.2f cm, w=%.2f cm", lengthCm, widthCm);
     }
     // endregion
 
