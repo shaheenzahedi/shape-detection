@@ -4,6 +4,7 @@ import com.github.sarxos.webcam.Webcam;
 import com.lilium.shapedetection.util.ShapeDetectionUtil;
 import nu.pattern.OpenCV;
 import org.opencv.core.*;
+import org.opencv.core.Point;
 import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
@@ -31,11 +32,14 @@ class ShapeDetection {
                                                 final Webcam webcam) {
         return () -> {
             while (true) {
+
                 BufferedImage image = webcam.getImage();
                 Mat frame = bufferedImageToMat(image);
-                Mat adjustedFrame = adjustShadowsAndContrast(frame, 0.5, 1.2, 3.0);
+                frame = zoomImage(frame, 1.3);
+                Mat adjustedFrame = adjustShadowsAndContrast(frame, 0.0, 1.0, 0.0);
                 Mat processed = ShapeDetectionUtil.processImage(adjustedFrame);
                 ShapeDetectionUtil.markOuterContour(processed, adjustedFrame);
+                drawGrid(adjustedFrame, 4,4);
                 ShapeDetectionUtil.drawImage(adjustedFrame, cameraFeed);
                 ShapeDetectionUtil.drawImage(processed, processedFeed);
                 try {
@@ -46,6 +50,28 @@ class ShapeDetection {
             }
         };
     }
+
+
+    private static void drawGrid(Mat frame, int rows, int cols) {
+        int width = (int) (frame.cols() * 1.1);
+        int height = (int) (frame.rows() * 1.0);
+
+        // Define the color of the grid lines (in BGR format)
+        Scalar gridColor = new Scalar(255, 255, 255); // Green color
+
+        // Draw vertical lines
+        for (int i = 1; i < cols; i++) {
+            int x = width * i / cols;
+            Imgproc.line(frame, new Point(x, 0), new Point(x, height), gridColor, 1);
+        }
+
+        // Draw horizontal lines
+        for (int i = 1; i < rows; i++) {
+            int y = height * i / rows;
+            Imgproc.line(frame, new Point(0, y), new Point(width, y), gridColor, 1);
+        }
+    }
+
     public static Mat adjustShadowsAndContrast(Mat frame, double shadowLevel, double contrastLevel, double sharpnessLevel) {
         Mat result = new Mat();
         frame.convertTo(result, -1, 1, shadowLevel);

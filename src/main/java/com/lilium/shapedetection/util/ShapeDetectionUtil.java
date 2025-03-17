@@ -53,60 +53,47 @@ public final class ShapeDetectionUtil {
         return processed;
     }
 
-    public static void markOuterContour(final Mat processedImage,
-                                        final Mat originalImage) {
-        final List<MatOfPoint> allContours = new ArrayList<>();
-        Imgproc.findContours(
-                processedImage,
-                allContours,
-                new Mat(processedImage.size(), processedImage.type()),
-                Imgproc.RETR_EXTERNAL,
-                Imgproc.CHAIN_APPROX_NONE
-        );
-        final List<MatOfPoint> filteredContours = allContours.stream()
-                .filter(contour -> {
-                    final double value = Imgproc.contourArea(contour);
-                    final Rect rect = Imgproc.boundingRect(contour);
-                    final boolean isNotNoise = value > 1000;
-                    if (isNotNoise) {
-                        Imgproc.putText(
-                                originalImage,
-                                findArea(contour),
-                                new Point(rect.x + rect.width, rect.y + rect.height),
-                                2,
-                                0.5,
-                                new Scalar(124, 252, 0),
-                                1
-                        );
-                        MatOfPoint2f dst = new MatOfPoint2f();
-                        contour.convertTo(dst, CvType.CV_32F);
-                        Imgproc.approxPolyDP(dst, dst, 0.02 * Imgproc.arcLength(dst, true), true);
-                        Imgproc.putText(
-                                originalImage,
-                                "Points: " + dst.toArray().length,
-                                new Point(rect.x + rect.width, rect.y + rect.height + 15),
-                                2,
-                                0.5,
-                                new Scalar(124, 252, 0),
-                                1
-                        );
-                    }
-                    return isNotNoise;
-                }).collect(Collectors.toList());
-        Imgproc.drawContours(
-                originalImage,
-                filteredContours,
-                -1,
-                new Scalar(124, 252, 0),
-                1
-        );
+    public static void markOuterContour(final Mat processedImage, final Mat originalImage) {
+        List<MatOfPoint> allContours = new ArrayList<>();
+        Imgproc.findContours(processedImage, allContours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+
+        for (MatOfPoint contour : allContours) {
+            double area = Imgproc.contourArea(contour);
+            if (area < 1000) continue; // Ignore small areas (noise)
+
+            // Convert contour to MatOfPoint2f for rotated bounding box
+            MatOfPoint2f contour2f = new MatOfPoint2f(contour.toArray());
+            RotatedRect rotatedRect = Imgproc.minAreaRect(contour2f);
+
+            Point[] rectPoints = new Point[4];
+            rotatedRect.points(rectPoints);
+
+            // Draw the rotated rectangle
+            for (int i = 0; i < 4; i++) {
+                Imgproc.line(originalImage, rectPoints[i], rectPoints[(i + 1) % 4], new Scalar(0, 255, 0), 2);
+            }
+
+            // Optionally, add text with size info
+            String dimensions = findRotatedRectArea(rotatedRect);
+            Imgproc.putText(originalImage, dimensions, rectPoints[0], Imgproc.FONT_HERSHEY_SIMPLEX, 0.5, new Scalar(0, 0, 255), 1);
+        }
     }
+
+
+
+    private static String findRotatedRectArea(RotatedRect rotatedRect) {
+        double scalingFactor = 0.0288;
+        double lengthCm = rotatedRect.size.height * scalingFactor;
+        double widthCm = rotatedRect.size.width * scalingFactor;
+        return String.format("%.1f CM x %.1f CM", Math.max(lengthCm,widthCm), Math.min(lengthCm,widthCm));
+    }
+
 
     private static String findArea(MatOfPoint contour) {
         Rect boundingRect = Imgproc.boundingRect(contour);
-        double scalingFactor = 0.03695;
-        double lengthCm = boundingRect.height * scalingFactor;
-        double widthCm = boundingRect.width * scalingFactor;
+        double scalingFactor = 0.0359;
+        double lengthCm = Math.round(boundingRect.height * scalingFactor);
+        double widthCm = Math.round(boundingRect.width * scalingFactor);
         return String.format("l=%.2f cm, w=%.2f cm", lengthCm, widthCm);
     }
 
